@@ -67,6 +67,11 @@ class DriverManager:
         if self.config.get('chrome.options.headless', False):
             chrome_options.add_argument("--headless")
             logger.debug("Chrome headless mode enabled")
+        if self.config.get('chrome.options.no_sandbox', False):
+            chrome_options.add_argument("--no-sandbox")
+            chrome_options.add_argument("--disable-dev-shm-usage")
+            chrome_options.add_argument("--disable-gpu")
+            logger.debug("Chrome no-sandbox mode enabled")
         if not self.config.get('emr.verify-HTTPS', True):
             chrome_options.add_argument('--ignore-certificate-errors')
         return webdriver.Chrome(

@@ -399,6 +399,14 @@ def signal_handler(signum, frame):
     logger.info("Received signal %s. Initiating shutdown...", signum)
     shutdown_event.set()
 
+def _reap_zombies(signum, frame):
+    """Reap zombie child processes (e.g. orphaned Chrome trees reparented to PID 1)."""
+    while True:
+        try:
+            os.waitpid(-1, os.WNOHANG)
+        except ChildProcessError:
+            return
+
 def main_loop():
     try:
         logger.info("Main loop started. Waiting for tasks...")
@@ -415,6 +423,8 @@ if __name__ == "__main__":
 
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
+    if hasattr(signal, "SIGCHLD"):
+        signal.signal(signal.SIGCHLD, _reap_zombies)
 
     # Load configuration files
     config_file = args.config or os.environ.get('AIMOA_CONFIG') or os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "config.yaml")
