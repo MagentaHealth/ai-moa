@@ -1,0 +1,109 @@
+# =============================================================================
+# AI-MOA configuration - CPU-only / no-GPU reference (Docker deployment)
+# =============================================================================
+# Reference configuration for running AI-MOA on a machine WITHOUT a GPU
+# (e.g. a small cloud VM), with:
+#   - OCR on CPU                       (ocr.device: cpu, ocr.enable_gpu: false)
+#   - an Open-O EMR on the same host   (emr.system_type: openo, base_url on
+#                                        localhost, reached via Docker host
+#                                        networking)
+#   - an external OpenAI-compatible LLM endpoint (ai.uri / ai.api_key /
+#    llm.model)
+#   - Chrome running without sandbox   (chrome.options.no_sandbox: true,
+#                                        required when Chrome runs as root
+#                                        inside a container)
+#
+# REDACTED: the LLM host / API key / model id and the Fernet-encrypted EMR
+# credentials below are placeholders. Nothing in this file is loaded
+# automatically - copy it to src/config.yaml and fill in your own values.
+#
+# Quick start (pairs with Dockerfile.cpu / docker-compose.cpu.yaml):
+#   1. cp src/config.yaml.cpu.example src/config.yaml
+#   2. cp src/workflow-config.yaml.example src/workflow-config.yaml
+#   3. python main.py --config src/config.yaml \
+#        --workflow-config src/workflow-config.yaml --encrypt-credentials
+#      (prompts for the EMR username/password/PIN, Fernet-encrypts them into
+#       src/config.yaml, and prints the key once - save it as
+#       export EMR_SECRET_KEY="..." in config/env.emr, which is gitignored)
+#   4. cp src/template_providerlist.txt config/
+#      (provider-list generation silently skips if this file is missing)
+#   5. docker compose -f docker-compose.yaml -f docker-compose.cpu.yaml \
+#        up -d --build
+#
+# The stock src/config.yaml.example targets the default (GPU) flow; this file
+# shows the values that differ for a CPU / Open-O setup.
+# =============================================================================
+
+ai:
+  api_key: "<your-llm-api-key>"  # Bearer token if your LLM endpoint requires one; leave unset/empty if it does not
+  uri: "http://<your-llm-host>:2000/v1/chat/completions"  # any OpenAI-compatible chat completions endpoint
+  verify-HTTPS: false
+aimoa_document_processor:
+  type: emr
+chrome:
+  options:
+    headless: true
+    no_sandbox: true  # required when Chrome runs as root inside a container
+document_processor:
+  local:
+    input_directory: ../app/input
+  system_type: local
+emr:
+  base_url: http://localhost:8080/oscar  # EMR on the same host (Docker host networking); adjust for your setup
+  document_folder: pending  # 'pending' = standby; use 'incoming' to process the fax inbox (see inbox.incoming)
+  incoming_folder: Fax
+  incoming_folder_queue: '1'
+  login_pin_field: true  # Open-O login has a separate PIN field
+  opro_pendingdocs_ids_auto_increment: false
+  password: REPLACE_WITH_ENCRYPTED_VALUE  # run --encrypt-credentials (see header)
+  pin: REPLACE_WITH_ENCRYPTED_VALUE
+  system_type: openo  # Open-O (use 'o19' for Oscar 19)
+  tag_skipped_files: true
+  user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.7727.101 Safari/537.36"
+  username: REPLACE_WITH_ENCRYPTED_VALUE
+  verify-HTTPS: false
+file_processing:
+  allowed_extensions:
+  - .pdf
+  - .jpg
+  - .png
+  - .tiff
+  incoming_retries: 0  # reset to 0 before (re)starting inbox processing
+  input_directory: ../app/input
+  max_retries: 3
+  output_directory: ../app/output
+  pending_retries: 1
+general_setting:
+  timeout: 300
+inbox:
+  incoming: '2125-01-01 00:00:00'  # far-future sentinel = standby; use a past timestamp (e.g. '2020-01-01 00:00:00') to process docs newer than it
+  pending: 99999999
+llm:
+  character: Assistant
+  chat_template: '{{ bos_token }}{% for message in messages %}{% if (message[''role'']
+    == ''user'') != (loop.index0 % 2 == 0) %}{{ raise_exception(''Conversation roles
+    must alternate user/assistant/user/assistant...'') }}{% endif %}{% if message[''role'']
+    == ''user'' %}{{ ''[INST] '' + message[''content''] + '' [/INST]'' }}{% elif message[''role'']
+    == ''assistant'' %}{{ message[''content''] + eos_token}}{% else %}{{ raise_exception(''Only
+    user and assistant roles are supported!'') }}{% endif %}{% endfor %}'
+  log_responses: false
+  model: "<your-model-id>"  # must match the model your LLM endpoint serves (check its /v1/models)
+  temperature: 0.1
+  top_p: 0.1
+lock:
+  status: false
+logging:
+  console_level: INFO
+  file_level: INFO
+  filename: ../logs/workflow.log
+  format: '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+ocr:
+  api_uri: https://localhost:8002/ocr  # only used for OCR-as-API setups
+  det_arch: fast_base
+  device: cpu  # CPU-only: no GPU on this host
+  enable_gpu: false
+  page_limit: 10
+  reco_arch: crnn_vgg16_bn
+provider_list:
+  output_file: ../config/provider_list.yaml
+  template_file: ../config/template_providerlist.txt  # copy src/template_providerlist.txt to config/ (see header)
