@@ -101,6 +101,9 @@ class Workflow:
         self.headers['Origin'] = self.origin_url
         self.headers['Referer'] = self.base_url
         self.headers['User-Agent'] = config.get('emr.user_agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.7727.101 Safari/537.36').replace('\n', '')
+        api_key = config.get('ai.api_key')
+        if api_key:
+            self.headers['Authorization'] = f'Bearer {api_key}'
 
         self.update_o19 = o19_updater.update_o19
         self.view_output = o19_updater.view_output

@@ -1,0 +1,35 @@
+# CPU-only (no GPU) Docker deployment overlay for AI-MOA.
+#
+# Usage (from the repo root):
+#   docker compose -f docker-compose.yaml -f docker-compose.cpu.yaml up -d --build
+#
+# Prerequisites:
+#   - src/config.yaml           e.g. copied from src/config.yaml.cpu.example
+#   - src/workflow-config.yaml  e.g. copied from src/workflow-config.yaml.example
+#   - config/env.emr (gitignored) containing:
+#       export EMR_SECRET_KEY="..."
+#     (the key is printed once by:
+#       python main.py --config src/config.yaml --workflow-config src/workflow-config.yaml --encrypt-credentials)
+#
+# Notes:
+#   - Uses Dockerfile.cpu (CPU-only torch, Chrome baked in, no config in image).
+#   - Host networking so the app reaches an EMR on the same host (localhost)
+#     and external LLM endpoints directly.
+#   - The base compose's `ports: "8000:8000"` remains in the merged config but
+#     is ignored (harmless) under host networking.
+services:
+  ai_moa:
+    build:
+      context: .
+      dockerfile: Dockerfile.cpu
+    network_mode: host
+    env_file:
+      - ./config/env.emr
+    environment:
+      HOME: /cache
+    volumes:
+      - ./config:/app/config
+      - ./logs:/app/logs
+      - ./cache:/cache
+    shm_size: 256m
+    command: python main.py --config /app/src/config.yaml --workflow-config /app/src/workflow-config.yaml

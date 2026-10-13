@@ -156,10 +156,24 @@ class LoginManager:
         if self.config.get('chrome.options.headless', False):
                 chrome_options.add_argument("--headless")
                 logger.debug("Chrome headless mode enabled")
+        if self.config.get('chrome.options.no_sandbox', False):
+                chrome_options.add_argument("--no-sandbox")
+                chrome_options.add_argument("--disable-dev-shm-usage")
+                chrome_options.add_argument("--disable-gpu")
+                logger.debug("Chrome no-sandbox mode enabled")
         if not self.config.get('emr.verify-HTTPS', True):
             chrome_options.add_argument('--ignore-certificate-errors')
-        driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=chrome_options)
-        return driver, self.is_login_successful(self.login_with_selenium(driver))
+        driver = None
+        try:
+            driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=chrome_options)
+            return driver, self.is_login_successful(self.login_with_selenium(driver))
+        except Exception:
+            if driver is not None:
+                try:
+                    driver.quit()
+                except Exception:
+                    logger.exception("Failed to quit leaked driver")
+            raise
 
     def login(self):
         """

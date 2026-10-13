@@ -1,0 +1,37 @@
+FROM python:3.10-slim-bookworm
+
+WORKDIR /app
+
+# Install system dependencies required by OpenCV
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libgl1 \
+    libglib2.0-0 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Google Chrome for Selenium (headless EMR login)
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ca-certificates curl gnupg wget \
+    && curl -fsSL https://dl.google.com/linux/linux_signing_key.pub | gpg --dearmor -o /usr/share/keyrings/google-chrome.gpg \
+    && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/google-chrome.gpg] http://dl.google.com/linux/chrome/deb/ stable main" > /etc/apt/sources.list.d/google-chrome.list \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends google-chrome-stable \
+    && rm -rf /var/lib/apt/lists/*
+
+# CPU-only PyTorch first (no GPU); torch/torchvision in
+# requirements.txt are then seen as already satisfied
+COPY src/requirements.txt .
+RUN pip install --no-cache-dir torch==2.2.2+cpu torchvision==0.17.2+cpu \
+    --index-url https://download.pytorch.org/whl/cpu \
+    --extra-index-url https://pypi.org/simple \
+    && pip install --no-cache-dir -r requirements.txt
+
+# Copy the source code
+# (config files are intentionally not baked into the image; they are
+#  provided at runtime by the docker-compose volume mounts)
+COPY src /app/src
+
+# Set the working directory to src
+WORKDIR /app/src
+
+# Run the application
+CMD ["python", "main.py"]

@@ -111,7 +111,9 @@ class SessionManager:
         and logs each step in the shutdown process.
         """
         logger.info("Closing dirver.")
-        self.driver.close()
-        self.driver.quit()
-        self.session.close()
+        if self.driver is not None:
+            self.driver.close()
+            self.driver.quit()
+        if self.session is not None:
+            self.session.close()
         logger.info("Closing session.")
